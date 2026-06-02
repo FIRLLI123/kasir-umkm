@@ -1,0 +1,926 @@
+# PRD BACKEND API - APLIKASI KASIR UMKM V1
+
+## 1. PROJECT OVERVIEW
+
+Backend akan digunakan oleh aplikasi Android Native (Java).
+
+Framework:
+
+* Laravel 11
+* PHP 7.4
+* MySQL
+* Laravel Sanctum Authentication
+
+Database:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=kasir-umkm
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Tujuan aplikasi:
+
+Membuat sistem kasir sederhana untuk UMKM yang memiliki:
+
+* Login User
+* Single Device Login
+* Master Customer
+* Master Produk
+* Harga Produk Berdasarkan Golongan Customer
+* Transaksi Penjualan
+* Void Transaksi
+* Cetak Struk
+* Laporan Penjualan
+* Laporan Margin
+
+---
+
+# 2. SCOPE V1
+
+## Included
+
+### Authentication
+
+* Login
+* Logout
+* Profile
+* Single Device Login
+
+### Master
+
+* Customer Group
+* Customer
+* Product
+* Payment Method
+* App Setting
+
+### Transaction
+
+* Create Sales
+* Detail Sales
+* List Sales
+* Void Sales
+* Receipt Data
+
+### Reports
+
+* Daily Report
+* Weekly Report
+* Monthly Report
+* Product Report
+* Customer Report
+* Payment Method Report
+
+---
+
+## Not Included (Future Version)
+
+### Inventory Module
+
+Belum digunakan pada V1.
+
+Fitur berikut belum aktif:
+
+* Stock Validation
+* Stock Reduction
+* Stock Adjustment
+* Stock Mutation
+* Inventory Report
+
+Tetapi struktur database tetap disiapkan agar mudah dikembangkan pada V2.
+
+---
+
+# 3. AUTHENTICATION
+
+Menggunakan Laravel Sanctum.
+
+## Single Device Login Rules
+
+Jika user login dari device baru:
+
+1. Token lama dihapus.
+2. Token baru dibuat.
+3. Device lama otomatis logout.
+
+---
+
+## Additional User Fields
+
+Tambahkan ke table users:
+
+```text
+phone nullable
+role
+device_id nullable
+device_name nullable
+last_login_at nullable
+status default 00
+created_at
+updated_at
+```
+
+Role:
+
+```text
+admin
+kasir
+```
+
+Status:
+
+```text
+00 = aktif
+99 = nonaktif
+```
+
+---
+
+# 4. DATABASE STRUCTURE
+
+## customer_groups
+
+```text
+id
+group_code
+group_name
+status
+created_at
+updated_at
+```
+
+Default Data:
+
+```text
+USER
+FREELANCER
+GROSIR
+```
+
+---
+
+## customers
+
+```text
+id
+customer_code nullable
+customer_name
+phone nullable
+address nullable
+customer_group_id
+status
+created_at
+updated_at
+```
+
+---
+
+## products
+
+```text
+id
+product_code nullable
+product_name
+unit nullable
+cost_price
+stock default 0
+status
+created_at
+updated_at
+```
+
+Catatan:
+
+Field stock hanya disiapkan untuk masa depan.
+
+Pada V1:
+
+* tidak digunakan
+* tidak divalidasi
+* tidak dikurangi saat transaksi
+
+---
+
+## product_prices
+
+Harga berdasarkan golongan customer.
+
+```text
+id
+product_id
+customer_group_id
+selling_price
+status
+created_at
+updated_at
+```
+
+Unique:
+
+```text
+product_id
+customer_group_id
+```
+
+Contoh:
+
+Produk Aqua
+
+```text
+USER        5000
+FREELANCER  4500
+GROSIR      4000
+```
+
+---
+
+## payment_methods
+
+```text
+id
+method_code
+method_name
+status
+created_at
+updated_at
+```
+
+Default:
+
+```text
+CASH
+TRANSFER
+QRIS
+```
+
+---
+
+## sales_h
+
+Header transaksi.
+
+```text
+id
+invoice_no
+invoice_date
+user_id
+customer_id
+customer_group_id
+payment_method_id
+
+subtotal
+discount
+grand_total
+
+total_modal
+total_margin
+
+paid_amount
+change_amount
+
+status
+
+void_reason nullable
+void_by nullable
+void_at nullable
+
+created_at
+updated_at
+```
+
+Status:
+
+```text
+00 = sukses
+98 = void
+99 = nonaktif
+```
+
+---
+
+## sales_d
+
+Detail transaksi.
+
+```text
+id
+sales_h_id
+
+product_id
+product_name_snapshot
+
+qty
+
+cost_price
+selling_price
+
+subtotal
+margin
+
+status
+
+created_at
+updated_at
+```
+
+Snapshot wajib disimpan agar histori transaksi tetap aman jika produk berubah.
+
+---
+
+## app_settings
+
+```text
+id
+setting_key
+setting_value
+status
+created_at
+updated_at
+```
+
+Default:
+
+```text
+store_name
+store_address
+store_phone
+receipt_footer
+```
+
+---
+
+## stock_mutations
+
+Table ini tetap dibuat.
+
+Namun belum digunakan pada V1.
+
+```text
+id
+product_id
+mutation_date
+mutation_type
+reference_type
+reference_id
+qty_in
+qty_out
+stock_before
+stock_after
+note
+created_by
+status
+created_at
+updated_at
+```
+
+---
+
+# 5. API AUTH
+
+## POST /api/login
+
+Request
+
+```json
+{
+  "email": "admin@mail.com",
+  "password": "password",
+  "device_id": "ANDROID123",
+  "device_name": "Samsung A55"
+}
+```
+
+Response
+
+```json
+{
+  "success": true,
+  "message": "Login berhasil",
+  "data": {
+    "token": "TOKEN",
+    "user": {}
+  }
+}
+```
+
+---
+
+## POST /api/logout
+
+Logout user.
+
+---
+
+## GET /api/profile
+
+Menampilkan data user login.
+
+---
+
+# 6. API CUSTOMER GROUP
+
+## GET /api/customer-groups
+
+List customer group.
+
+## POST /api/customer-groups
+
+Tambah customer group.
+
+## PUT /api/customer-groups/{id}
+
+Edit customer group.
+
+## DELETE /api/customer-groups/{id}
+
+Update status menjadi 99.
+
+---
+
+# 7. API CUSTOMER
+
+## GET /api/customers
+
+Support filter:
+
+```text
+search
+status
+customer_group_id
+```
+
+## GET /api/customers/{id}
+
+Detail customer.
+
+## POST /api/customers
+
+Tambah customer.
+
+## PUT /api/customers/{id}
+
+Edit customer.
+
+## DELETE /api/customers/{id}
+
+Soft delete.
+
+Status menjadi 99.
+
+---
+
+# 8. API PRODUCT
+
+## GET /api/products
+
+List produk.
+
+Response harus include:
+
+```json
+{
+  "id": 1,
+  "product_name": "Aqua",
+  "prices": []
+}
+```
+
+---
+
+## GET /api/products/{id}
+
+Detail produk.
+
+---
+
+## POST /api/products
+
+Request:
+
+```json
+{
+  "product_code": "PRD001",
+  "product_name": "Aqua",
+  "unit": "PCS",
+  "cost_price": 3000,
+  "prices": [
+    {
+      "customer_group_id": 1,
+      "selling_price": 5000
+    },
+    {
+      "customer_group_id": 2,
+      "selling_price": 4500
+    },
+    {
+      "customer_group_id": 3,
+      "selling_price": 4000
+    }
+  ]
+}
+```
+
+---
+
+## PUT /api/products/{id}
+
+Edit produk.
+
+---
+
+## DELETE /api/products/{id}
+
+Status menjadi 99.
+
+---
+
+# 9. API PAYMENT METHOD
+
+## GET
+
+List payment method.
+
+## POST
+
+Tambah payment method.
+
+## PUT
+
+Edit payment method.
+
+## DELETE
+
+Status menjadi 99.
+
+---
+
+# 10. SALES TRANSACTION
+
+## POST /api/sales
+
+Request:
+
+```json
+{
+  "customer_id": 1,
+  "payment_method_id": 1,
+  "discount": 0,
+  "paid_amount": 50000,
+  "items": [
+    {
+      "product_id": 1,
+      "qty": 2
+    },
+    {
+      "product_id": 2,
+      "qty": 1
+    }
+  ]
+}
+```
+
+---
+
+## Sales Flow
+
+### Step 1
+
+Ambil customer.
+
+### Step 2
+
+Ambil customer group.
+
+### Step 3
+
+Cari harga produk berdasarkan:
+
+```text
+product_id
+customer_group_id
+```
+
+dari table:
+
+```text
+product_prices
+```
+
+### Step 4
+
+Hitung:
+
+```text
+subtotal
+discount
+grand_total
+total_modal
+total_margin
+change_amount
+```
+
+### Step 5
+
+Generate invoice.
+
+Format:
+
+```text
+INV-YYYYMMDD-0001
+```
+
+### Step 6
+
+Simpan ke:
+
+```text
+sales_h
+sales_d
+```
+
+---
+
+## Catatan Penting
+
+Pada V1:
+
+```text
+TIDAK ADA
+pengurangan stok
+validasi stok
+stock mutation
+```
+
+---
+
+# 11. LIST SALES
+
+## GET /api/sales
+
+Filter:
+
+```text
+start_date
+end_date
+customer_id
+user_id
+status
+search
+```
+
+---
+
+# 12. DETAIL SALES
+
+## GET /api/sales/{id}
+
+Menampilkan header dan detail transaksi.
+
+---
+
+# 13. VOID SALES
+
+## POST /api/sales/{id}/void
+
+Request:
+
+```json
+{
+  "void_reason": "Customer batal beli"
+}
+```
+
+Rules:
+
+```text
+status transaksi harus 00
+```
+
+Update:
+
+```text
+sales_h.status = 98
+sales_d.status = 98
+
+void_reason
+void_by
+void_at
+```
+
+Tidak ada proses stok.
+
+---
+
+# 14. RECEIPT API
+
+## GET /api/sales/{id}/receipt
+
+Digunakan Android untuk thermal printer.
+
+Data:
+
+```text
+Nama Toko
+Alamat
+Invoice
+Kasir
+Customer
+Item
+Total
+Bayar
+Kembalian
+Footer
+```
+
+---
+
+# 15. REPORTS
+
+## Daily Report
+
+GET
+
+```text
+/api/reports/daily
+```
+
+Output:
+
+```text
+total transaksi
+gross sales
+discount
+net sales
+modal
+margin
+void transaction
+```
+
+---
+
+## Weekly Report
+
+GET
+
+```text
+/api/reports/weekly
+```
+
+---
+
+## Monthly Report
+
+GET
+
+```text
+/api/reports/monthly
+```
+
+---
+
+## Product Report
+
+GET
+
+```text
+/api/reports/products
+```
+
+Output:
+
+```text
+produk
+qty terjual
+total jual
+total modal
+margin
+```
+
+---
+
+## Customer Report
+
+GET
+
+```text
+/api/reports/customers
+```
+
+Output:
+
+```text
+customer
+jumlah transaksi
+total penjualan
+margin
+```
+
+---
+
+## Payment Method Report
+
+GET
+
+```text
+/api/reports/payment-methods
+```
+
+Output:
+
+```text
+CASH
+TRANSFER
+QRIS
+```
+
+beserta total transaksi dan nominal.
+
+---
+
+# 16. Seeder
+
+## Admin
+
+```text
+admin@mail.com
+password
+role admin
+status 00
+```
+
+---
+
+## Customer Group
+
+```text
+USER
+FREELANCER
+GROSIR
+```
+
+---
+
+## Payment Method
+
+```text
+CASH
+TRANSFER
+QRIS
+```
+
+---
+
+## App Setting
+
+```text
+store_name
+store_address
+store_phone
+receipt_footer
+```
+
+---
+
+# 17. Definition of Done
+
+Backend dianggap selesai apabila:
+
+✓ Login Sanctum berhasil
+
+✓ Single Device Login berjalan
+
+✓ CRUD Customer Group berjalan
+
+✓ CRUD Customer berjalan
+
+✓ CRUD Product berjalan
+
+✓ CRUD Payment Method berjalan
+
+✓ Transaksi multi produk berhasil
+
+✓ Void transaksi berhasil
+
+✓ Receipt API berhasil
+
+✓ Daily report berhasil
+
+✓ Weekly report berhasil
+
+✓ Monthly report berhasil
+
+✓ Product report berhasil
+
+✓ Customer report berhasil
+
+✓ Payment method report berhasil
+
+✓ Seluruh endpoint berhasil diuji melalui Postman
+
+✓ Seluruh migration berhasil dijalankan
+
+✓ Seluruh seeder berhasil dijalankan
