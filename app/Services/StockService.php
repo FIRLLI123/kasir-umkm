@@ -191,6 +191,7 @@ class StockService
             }
 
             StockMutation::create([
+                'company_id' => $product->company_id,
                 'product_id' => $product->id,
                 'mutation_date' => $mutationDate ?: now(),
                 'mutation_type' => $mutationType,

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AppSetting;
+use App\Models\Company;
 use Illuminate\Database\Seeder;
 
 class AppSettingSeeder extends Seeder
@@ -14,6 +15,8 @@ class AppSettingSeeder extends Seeder
      */
     public function run()
     {
+        $company = Company::where('company_code', 'DEMO')->firstOrFail();
+
         $settings = [
             'store_name' => 'Kasir UMKM',
             'store_address' => '',
@@ -23,8 +26,12 @@ class AppSettingSeeder extends Seeder
 
         foreach ($settings as $key => $value) {
             AppSetting::updateOrCreate(
-                ['setting_key' => $key],
                 [
+                    'company_id' => $company->id,
+                    'setting_key' => $key,
+                ],
+                [
+                    'company_id' => $company->id,
                     'setting_value' => $value,
                     'status' => '00',
                 ]

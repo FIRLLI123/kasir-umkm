@@ -22,7 +22,7 @@ class AuthController extends Controller
         ]);
 
         /** @var User|null $user */
-        $user = User::where('email', $validated['email'])->first();
+        $user = User::with('company')->where('email', $validated['email'])->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return $this->errorResponse('Email atau password tidak valid', 401);
@@ -30,6 +30,14 @@ class AuthController extends Controller
 
         if ($user->status !== '00') {
             return $this->errorResponse('User tidak aktif', 403);
+        }
+
+        if (! $user->company) {
+            return $this->errorResponse('User belum terhubung ke company manapun', 403);
+        }
+
+        if ((int) $user->company->status !== 1) {
+            return $this->errorResponse('Company user sedang tidak aktif', 403);
         }
 
         $user->tokens()->delete();
@@ -45,6 +53,7 @@ class AuthController extends Controller
         return $this->successResponse([
             'token' => $token,
             'user' => $user,
+            'company' => $user->company,
         ], 'Login berhasil');
     }
 
@@ -61,6 +70,11 @@ class AuthController extends Controller
 
     public function profile(Request $request)
     {
-        return $this->successResponse($request->user(), 'Profile berhasil diambil');
+        $user = $request->user()->load('company');
+
+        return $this->successResponse([
+            'user' => $user,
+            'company' => $user->company,
+        ], 'Profile berhasil diambil');
     }
 }

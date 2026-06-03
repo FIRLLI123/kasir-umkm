@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AppSettingController extends Controller
 {
@@ -26,7 +27,13 @@ class AppSettingController extends Controller
     {
         $validated = $request->validate([
             'settings' => 'required|array|min:1',
-            'settings.*.setting_key' => 'required|string|exists:app_settings,setting_key',
+            'settings.*.setting_key' => [
+                'required',
+                'string',
+                Rule::exists('app_settings', 'setting_key')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'settings.*.setting_value' => 'nullable|string',
             'settings.*.status' => 'nullable|in:00,99',
         ]);

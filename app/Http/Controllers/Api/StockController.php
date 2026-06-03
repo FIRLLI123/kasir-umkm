@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Services\StockService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class StockController extends Controller
 {
@@ -58,7 +59,12 @@ class StockController extends Controller
     public function adjust(Request $request)
     {
         $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => [
+                'required',
+                Rule::exists('products', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'new_stock' => 'required|numeric|min:0',
             'note' => 'nullable|string',
             'mutation_date' => 'nullable|date',

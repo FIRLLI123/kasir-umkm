@@ -18,7 +18,7 @@ class ReportController extends Controller
         $date = $request->get('date', now()->toDateString());
 
         return $this->successResponse(
-            $this->summaryBetween($date, $date),
+            $this->summaryBetween($date, $date, $request->user()->company_id),
             'Laporan harian berhasil diambil'
         );
     }
@@ -30,7 +30,7 @@ class ReportController extends Controller
         $endDate = $date->copy()->endOfWeek()->toDateString();
 
         return $this->successResponse(
-            $this->summaryBetween($startDate, $endDate),
+            $this->summaryBetween($startDate, $endDate, $request->user()->company_id),
             'Laporan mingguan berhasil diambil'
         );
     }
@@ -42,7 +42,7 @@ class ReportController extends Controller
         $endDate = $date->copy()->endOfMonth()->toDateString();
 
         return $this->successResponse(
-            $this->summaryBetween($startDate, $endDate),
+            $this->summaryBetween($startDate, $endDate, $request->user()->company_id),
             'Laporan bulanan berhasil diambil'
         );
     }
@@ -55,6 +55,7 @@ class ReportController extends Controller
 
         $query = DB::table('sales_d')
             ->join('sales_h', 'sales_h.id', '=', 'sales_d.sales_h_id')
+            ->where('sales_h.company_id', $request->user()->company_id)
             ->where('sales_h.status', '00')
             ->whereBetween(DB::raw('DATE(sales_h.invoice_date)'), [$startDate, $endDate])
             ->select(
@@ -84,6 +85,7 @@ class ReportController extends Controller
 
         $report = SalesHeader::query()
             ->join('customers', 'customers.id', '=', 'sales_h.customer_id')
+            ->where('sales_h.company_id', $request->user()->company_id)
             ->where('sales_h.status', '00')
             ->whereBetween(DB::raw('DATE(sales_h.invoice_date)'), [$startDate, $endDate])
             ->select(
@@ -110,6 +112,7 @@ class ReportController extends Controller
                 $join->on('payment_methods.id', '=', 'sales_h.payment_method_id')
                     ->whereBetween(DB::raw('DATE(sales_h.invoice_date)'), [$startDate, $endDate]);
             })
+            ->where('payment_methods.company_id', $request->user()->company_id)
             ->select(
                 'payment_methods.id as payment_method_id',
                 'payment_methods.method_code',
@@ -125,9 +128,10 @@ class ReportController extends Controller
         return $this->successResponse($report, 'Laporan metode pembayaran berhasil diambil');
     }
 
-    protected function summaryBetween($startDate, $endDate)
+    protected function summaryBetween($startDate, $endDate, $companyId)
     {
         $summary = SalesHeader::query()
+            ->where('company_id', $companyId)
             ->whereBetween(DB::raw('DATE(invoice_date)'), [$startDate, $endDate])
             ->selectRaw('
                 COUNT(CASE WHEN status = "00" THEN 1 END) as total_transactions,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PaymentMethodController extends Controller
 {
@@ -25,7 +26,14 @@ class PaymentMethodController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'method_code' => 'required|string|max:50|unique:payment_methods,method_code',
+            'method_code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('payment_methods', 'method_code')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'method_name' => 'required|string|max:255',
             'status' => 'nullable|in:00,99',
         ]);
@@ -44,7 +52,16 @@ class PaymentMethodController extends Controller
         $paymentMethod = PaymentMethod::findOrFail($id);
 
         $validated = $request->validate([
-            'method_code' => 'required|string|max:50|unique:payment_methods,method_code,'.$paymentMethod->id,
+            'method_code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('payment_methods', 'method_code')
+                    ->ignore($paymentMethod->id)
+                    ->where(function ($query) use ($request) {
+                        return $query->where('company_id', $request->user()->company_id);
+                    }),
+            ],
             'method_name' => 'required|string|max:255',
             'status' => 'nullable|in:00,99',
         ]);

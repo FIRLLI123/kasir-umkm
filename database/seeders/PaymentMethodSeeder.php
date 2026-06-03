@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Company;
 use App\Models\PaymentMethod;
 use Illuminate\Database\Seeder;
 
@@ -14,6 +15,8 @@ class PaymentMethodSeeder extends Seeder
      */
     public function run()
     {
+        $company = Company::where('company_code', 'DEMO')->firstOrFail();
+
         $methods = [
             ['method_code' => 'CASH', 'method_name' => 'CASH'],
             ['method_code' => 'TRANSFER', 'method_name' => 'TRANSFER'],
@@ -22,8 +25,12 @@ class PaymentMethodSeeder extends Seeder
 
         foreach ($methods as $method) {
             PaymentMethod::updateOrCreate(
-                ['method_code' => $method['method_code']],
                 [
+                    'company_id' => $company->id,
+                    'method_code' => $method['method_code'],
+                ],
+                [
+                    'company_id' => $company->id,
                     'method_name' => $method['method_name'],
                     'status' => '00',
                 ]

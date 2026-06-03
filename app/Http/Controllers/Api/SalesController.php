@@ -8,6 +8,7 @@ use App\Models\AppSetting;
 use App\Models\SalesHeader;
 use App\Services\SalesService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SalesController extends Controller
 {
@@ -26,6 +27,7 @@ class SalesController extends Controller
             'user',
             'customer.customerGroup',
             'paymentMethod',
+            'company',
         ])->orderByDesc('invoice_date');
 
         if ($request->filled('start_date')) {
@@ -73,12 +75,27 @@ class SalesController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'payment_method_id' => 'required|exists:payment_methods,id',
+            'customer_id' => [
+                'required',
+                Rule::exists('customers', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
+            'payment_method_id' => [
+                'required',
+                Rule::exists('payment_methods', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'discount' => 'nullable|numeric|min:0',
             'paid_amount' => 'required|numeric|min:0',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.product_id' => [
+                'required',
+                Rule::exists('products', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'items.*.qty' => 'required|numeric|min:0.01',
         ]);
 
@@ -95,6 +112,7 @@ class SalesController extends Controller
             'paymentMethod',
             'details.product',
             'voidUser',
+            'company',
         ])->findOrFail($id);
 
         return $this->successResponse($sales, 'Detail penjualan berhasil diambil');

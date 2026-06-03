@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
@@ -54,11 +55,23 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_code' => 'nullable|string|max:50|unique:customers,customer_code',
+            'customer_code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('customers', 'customer_code')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'customer_name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'customer_group_id' => 'required|exists:customer_groups,id',
+            'customer_group_id' => [
+                'required',
+                Rule::exists('customer_groups', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'status' => 'nullable|in:00,99',
         ]);
 
@@ -79,11 +92,25 @@ class CustomerController extends Controller
         $customer = Customer::findOrFail($id);
 
         $validated = $request->validate([
-            'customer_code' => 'nullable|string|max:50|unique:customers,customer_code,'.$customer->id,
+            'customer_code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('customers', 'customer_code')
+                    ->ignore($customer->id)
+                    ->where(function ($query) use ($request) {
+                        return $query->where('company_id', $request->user()->company_id);
+                    }),
+            ],
             'customer_name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'customer_group_id' => 'required|exists:customer_groups,id',
+            'customer_group_id' => [
+                'required',
+                Rule::exists('customer_groups', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'status' => 'nullable|in:00,99',
         ]);
 

@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class SalesDetail extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToCompany;
 
     protected $table = 'sales_d';
 
     protected $fillable = [
+        'company_id',
         'sales_h_id',
         'product_id',
         'product_name_snapshot',

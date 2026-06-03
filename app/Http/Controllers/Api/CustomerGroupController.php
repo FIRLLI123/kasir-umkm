@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\CustomerGroup;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerGroupController extends Controller
 {
@@ -25,7 +26,14 @@ class CustomerGroupController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'group_code' => 'required|string|max:50|unique:customer_groups,group_code',
+            'group_code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('customer_groups', 'group_code')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'group_name' => 'required|string|max:255',
             'status' => 'nullable|in:00,99',
         ]);
@@ -44,7 +52,16 @@ class CustomerGroupController extends Controller
         $customerGroup = CustomerGroup::findOrFail($id);
 
         $validated = $request->validate([
-            'group_code' => 'required|string|max:50|unique:customer_groups,group_code,'.$customerGroup->id,
+            'group_code' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('customer_groups', 'group_code')
+                    ->ignore($customerGroup->id)
+                    ->where(function ($query) use ($request) {
+                        return $query->where('company_id', $request->user()->company_id);
+                    }),
+            ],
             'group_name' => 'required|string|max:255',
             'status' => 'nullable|in:00,99',
         ]);

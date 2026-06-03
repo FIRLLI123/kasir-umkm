@@ -87,6 +87,7 @@ class SalesService
             }
 
             $sales = SalesHeader::create([
+                'company_id' => $user->company_id,
                 'invoice_no' => $this->generateInvoiceNumber(),
                 'invoice_date' => now(),
                 'user_id' => $user->id,
@@ -104,6 +105,7 @@ class SalesService
             ]);
 
             foreach ($items as $item) {
+                $item['company_id'] = $user->company_id;
                 $item['sales_h_id'] = $sales->id;
                 SalesDetail::create($item);
 
@@ -169,6 +171,7 @@ class SalesService
     {
         $prefix = 'INV-'.now()->format('Ymd').'-';
         $lastInvoice = SalesHeader::where('invoice_no', 'like', $prefix.'%')
+            ->where('company_id', auth()->user()->company_id)
             ->orderByDesc('id')
             ->value('invoice_no');
 

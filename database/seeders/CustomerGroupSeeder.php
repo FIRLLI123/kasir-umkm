@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Company;
 use App\Models\CustomerGroup;
 use Illuminate\Database\Seeder;
 
@@ -14,6 +15,8 @@ class CustomerGroupSeeder extends Seeder
      */
     public function run()
     {
+        $company = Company::where('company_code', 'DEMO')->firstOrFail();
+
         $groups = [
             ['group_code' => 'USER', 'group_name' => 'USER'],
             ['group_code' => 'FREELANCER', 'group_name' => 'FREELANCER'],
@@ -22,8 +25,12 @@ class CustomerGroupSeeder extends Seeder
 
         foreach ($groups as $group) {
             CustomerGroup::updateOrCreate(
-                ['group_code' => $group['group_code']],
                 [
+                    'company_id' => $company->id,
+                    'group_code' => $group['group_code'],
+                ],
+                [
+                    'company_id' => $company->id,
                     'group_name' => $group['group_name'],
                     'status' => '00',
                 ]

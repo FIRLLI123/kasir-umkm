@@ -9,6 +9,7 @@ use App\Models\ProductPrice;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -133,14 +134,29 @@ class ProductController extends Controller
     protected function validatePayload(Request $request, $productId = null)
     {
         return $request->validate([
-            'product_code' => 'nullable|string|max:50|unique:products,product_code,'.$productId,
+            'product_code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('products', 'product_code')
+                    ->ignore($productId)
+                    ->where(function ($query) use ($request) {
+                        return $query->where('company_id', $request->user()->company_id);
+                    }),
+            ],
             'product_name' => 'required|string|max:255',
             'unit' => 'nullable|string|max:50',
             'cost_price' => 'required|numeric|min:0',
             'stock' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:00,99',
             'prices' => 'nullable|array',
-            'prices.*.customer_group_id' => 'required_with:prices|distinct|exists:customer_groups,id',
+            'prices.*.customer_group_id' => [
+                'required_with:prices',
+                'distinct',
+                Rule::exists('customer_groups', 'id')->where(function ($query) use ($request) {
+                    return $query->where('company_id', $request->user()->company_id);
+                }),
+            ],
             'prices.*.selling_price' => 'required_with:prices|numeric|min:0',
             'prices.*.status' => 'nullable|in:00,99',
         ]);
@@ -152,6 +168,7 @@ class ProductController extends Controller
 
         foreach ($prices as $price) {
             ProductPrice::create([
+                'company_id' => $product->company_id,
                 'product_id' => $product->id,
                 'customer_group_id' => $price['customer_group_id'],
                 'selling_price' => $price['selling_price'],
