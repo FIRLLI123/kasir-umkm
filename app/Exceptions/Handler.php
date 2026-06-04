@@ -267,6 +267,12 @@ class Handler extends ExceptionHandler
             'new_stock' => 'Stok baru',
             'note' => 'Catatan',
             'mutation_date' => 'Tanggal mutasi',
+            'message' => 'Pesan',
+            'history' => 'Riwayat chat',
+            'history.*.role' => 'Role riwayat chat',
+            'history.*.content' => 'Isi riwayat chat',
+            'system_prompt' => 'System prompt',
+            'temperature' => 'Temperature AI',
         ];
 
         return isset($labels[$normalized]) ? $labels[$normalized] : ucfirst(str_replace('_', ' ', $field));
