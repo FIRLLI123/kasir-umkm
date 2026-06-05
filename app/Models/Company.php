@@ -10,6 +10,7 @@ class Company extends Model
     use HasFactory;
 
     protected $fillable = [
+        'owner_user_id',
         'company_name',
         'company_code',
         'address',
@@ -17,11 +18,32 @@ class Company extends Model
         'email',
         'logo',
         'status',
+        'subscription_status',
+        'trial_starts_at',
+        'trial_ends_at',
+        'subscription_starts_at',
+        'subscription_ends_at',
+        'activated_at',
+        'expired_at',
+    ];
+
+    protected $casts = [
+        'trial_starts_at' => 'datetime',
+        'trial_ends_at' => 'datetime',
+        'subscription_starts_at' => 'datetime',
+        'subscription_ends_at' => 'datetime',
+        'activated_at' => 'datetime',
+        'expired_at' => 'datetime',
     ];
 
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
     }
 
     public function customerGroups()
@@ -47,5 +69,10 @@ class Company extends Model
     public function appSettings()
     {
         return $this->hasMany(AppSetting::class);
+    }
+
+    public function paymentTransactions()
+    {
+        return $this->hasMany(PaymentTransaction::class);
     }
 }

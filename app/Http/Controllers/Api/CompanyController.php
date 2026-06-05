@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Models\AppSetting;
 use App\Models\Company;
-use App\Models\CustomerGroup;
-use App\Models\PaymentMethod;
+use App\Services\CompanyProvisioningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -15,6 +13,13 @@ use Illuminate\Validation\Rule;
 class CompanyController extends Controller
 {
     use ApiResponse;
+
+    protected $companyProvisioningService;
+
+    public function __construct(CompanyProvisioningService $companyProvisioningService)
+    {
+        $this->companyProvisioningService = $companyProvisioningService;
+    }
 
     public function index()
     {
@@ -49,9 +54,12 @@ class CompanyController extends Controller
                 'email' => $validated['email'] ?? null,
                 'logo' => $validated['logo'] ?? null,
                 'status' => isset($validated['status']) ? (int) $validated['status'] : 1,
+                'subscription_status' => 'active',
+                'subscription_starts_at' => now(),
+                'activated_at' => now(),
             ]);
 
-            $this->seedDefaultCompanyData($company);
+            $this->companyProvisioningService->seedDefaultCompanyData($company);
 
             return $company;
         });
@@ -99,55 +107,6 @@ class CompanyController extends Controller
         $company->update(['status' => 0]);
 
         return $this->successResponse($company->fresh(), 'Company berhasil dinonaktifkan');
-    }
-
-    protected function seedDefaultCompanyData(Company $company)
-    {
-        $groups = [
-            ['group_code' => 'USER', 'group_name' => 'USER'],
-            ['group_code' => 'FREELANCER', 'group_name' => 'FREELANCER'],
-            ['group_code' => 'GROSIR', 'group_name' => 'GROSIR'],
-        ];
-
-        foreach ($groups as $group) {
-            CustomerGroup::create([
-                'company_id' => $company->id,
-                'group_code' => $group['group_code'],
-                'group_name' => $group['group_name'],
-                'status' => '00',
-            ]);
-        }
-
-        $methods = [
-            ['method_code' => 'CASH', 'method_name' => 'CASH'],
-            ['method_code' => 'TRANSFER', 'method_name' => 'TRANSFER'],
-            ['method_code' => 'QRIS', 'method_name' => 'QRIS'],
-        ];
-
-        foreach ($methods as $method) {
-            PaymentMethod::create([
-                'company_id' => $company->id,
-                'method_code' => $method['method_code'],
-                'method_name' => $method['method_name'],
-                'status' => '00',
-            ]);
-        }
-
-        $settings = [
-            'store_name' => $company->company_name,
-            'store_address' => $company->address,
-            'store_phone' => $company->phone,
-            'receipt_footer' => 'Terima kasih sudah berbelanja',
-        ];
-
-        foreach ($settings as $key => $value) {
-            AppSetting::create([
-                'company_id' => $company->id,
-                'setting_key' => $key,
-                'setting_value' => $value,
-                'status' => '00',
-            ]);
-        }
     }
 
     protected function ensureSuperAdmin()

@@ -5,12 +5,58 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\CompanyProvisioningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
     use ApiResponse;
+
+    protected $companyProvisioningService;
+
+    public function __construct(CompanyProvisioningService $companyProvisioningService)
+    {
+        $this->companyProvisioningService = $companyProvisioningService;
+    }
+
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'company_name' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'phone' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+            'device_id' => 'nullable|string|max:255',
+            'device_name' => 'nullable|string|max:255',
+        ]);
+
+        $trialDays = (int) config('app.trial_days', env('TRIAL_DAYS', 14));
+        $result = $this->companyProvisioningService->createTrialCompanyWithOwner($validated, $trialDays);
+
+        /** @var User $user */
+        $user = $result['user']->load('company');
+
+        $token = null;
+        if (! empty($validated['device_name'])) {
+            $user->forceFill([
+                'device_id' => $validated['device_id'] ?? null,
+                'device_name' => $validated['device_name'],
+                'last_login_at' => now(),
+            ])->save();
+
+            $token = $user->createToken($validated['device_name'])->plainTextToken;
+        }
+
+        return $this->successResponse([
+            'token' => $token,
+            'user' => $user,
+            'company' => $user->company,
+            'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
+        ], 'Register berhasil', 201);
+    }
 
     public function login(Request $request)
     {
@@ -40,6 +86,8 @@ class AuthController extends Controller
             return $this->errorResponse('Company user sedang tidak aktif', 403);
         }
 
+        $subscription = $this->companyProvisioningService->buildSubscriptionSnapshot($user->company);
+
         $user->tokens()->delete();
 
         $user->forceFill([
@@ -54,6 +102,7 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $user,
             'company' => $user->company,
+            'subscription' => $subscription,
         ], 'Login berhasil');
     }
 
@@ -75,6 +124,17 @@ class AuthController extends Controller
         return $this->successResponse([
             'user' => $user,
             'company' => $user->company,
+            'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
         ], 'Profile berhasil diambil');
+    }
+
+    public function subscription(Request $request)
+    {
+        $user = $request->user()->load('company');
+
+        return $this->successResponse([
+            'company' => $user->company,
+            'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
+        ], 'Status langganan berhasil diambil');
     }
 }
