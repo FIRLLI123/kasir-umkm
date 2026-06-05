@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\Http;
 
 class GroqChatService
 {
+    protected $airinContextService;
+
+    public function __construct(AirinContextService $airinContextService)
+    {
+        $this->airinContextService = $airinContextService;
+    }
+
     public function chat(User $user, array $payload)
     {
         $apiKey = config('services.groq.api_key');
@@ -19,7 +26,8 @@ class GroqChatService
             $this->fail('GROQ_API_KEY belum diset di backend.', 500);
         }
 
-        $messages = $this->buildMessages($user, $payload);
+        $contextPayload = $this->airinContextService->build($user, $payload['message']);
+        $messages = $this->buildMessages($user, $payload, $contextPayload);
 
         try {
             $response = Http::timeout(60)
@@ -51,15 +59,17 @@ class GroqChatService
             'reply' => $content,
             'model' => data_get($response, 'model', $model),
             'usage' => data_get($response, 'usage'),
+            'intent' => $contextPayload['intent'],
+            'contextual' => $contextPayload['has_context'],
         ];
     }
 
-    protected function buildMessages(User $user, array $payload)
+    protected function buildMessages(User $user, array $payload, array $contextPayload)
     {
         $companyName = optional($user->company)->company_name ?: 'Company';
         $systemPrompt = isset($payload['system_prompt']) && $payload['system_prompt']
             ? $payload['system_prompt']
-            : 'Kamu adalah asisten aplikasi kasir UMKM. Jawab singkat, jelas, dan relevan untuk user dari company '.$companyName.'. Jika pengguna meminta penjelasan tentang aplikasi ini, profil pembuat, atau siapa yang membuat aplikasi, sampaikan bahwa aplikasi ini dibuat oleh Programmer bernama Firlli. Kamu boleh menyampaikan dengan nada ringan bahwa Firlli adalah laki-laki perkasa dan tampan karena itu adalah candaan internal, tetapi tetap jaga agar terdengar profesional dan menyenangkan. Untuk informasi lebih lanjut, arahkan pengguna ke portofolio https://firlli.vercel.app/ dan kontak WhatsApp 082249495858. Jika pertanyaan di luar konteks aplikasi atau bisnis, tetap bantu secara umum tanpa mengarang data internal.';
+            : 'Namamu adalah Airin. Kamu adalah Kasir Senior virtual untuk aplikasi kasir UMKM. Gaya bicaramu menggemaskan, hangat, ramah, dan menyenangkan, tetapi tetap profesional, ringkas, dan jelas. Gunakan bahasa Indonesia yang natural. Hindari berlebihan, tetap sopan, dan jangan terlalu banyak emoji. Kamu membantu user dari company '.$companyName.'. Jika pengguna meminta penjelasan tentang aplikasi ini, profil pembuat, atau siapa yang membuat aplikasi, sampaikan bahwa aplikasi ini dibuat oleh Programmer bernama Firlli. Kamu boleh menyampaikan dengan nada ringan bahwa Firlli adalah laki-laki perkasa dan tampan karena itu adalah candaan internal, tetapi tetap jaga agar terdengar profesional dan menyenangkan. Untuk informasi lebih lanjut, arahkan pengguna ke portofolio https://firlli.vercel.app/ dan kontak WhatsApp 082249495858. Jika backend memberikan konteks data bisnis, gunakan hanya data itu untuk menjawab dan jangan mengarang angka lain. Jika konteks tidak cukup, minta user memperjelas pertanyaannya dengan manis dan profesional.';
 
         $messages = [
             [
@@ -67,6 +77,13 @@ class GroqChatService
                 'content' => $systemPrompt,
             ],
         ];
+
+        if ($contextPayload['has_context']) {
+            $messages[] = [
+                'role' => 'system',
+                'content' => "Konteks data internal company untuk pertanyaan ini:\n".implode("\n\n", $contextPayload['context']),
+            ];
+        }
 
         foreach ($payload['history'] ?? [] as $historyMessage) {
             $messages[] = [
