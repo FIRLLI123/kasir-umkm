@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AiChatAccessService;
 use App\Services\CompanyProvisioningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,9 +16,15 @@ class AuthController extends Controller
 
     protected $companyProvisioningService;
 
-    public function __construct(CompanyProvisioningService $companyProvisioningService)
+    protected $aiChatAccessService;
+
+    public function __construct(
+        CompanyProvisioningService $companyProvisioningService,
+        AiChatAccessService $aiChatAccessService
+    )
     {
         $this->companyProvisioningService = $companyProvisioningService;
+        $this->aiChatAccessService = $aiChatAccessService;
     }
 
     public function register(Request $request)
@@ -33,7 +40,7 @@ class AuthController extends Controller
             'device_name' => 'nullable|string|max:255',
         ]);
 
-        $trialDays = (int) config('app.trial_days', env('TRIAL_DAYS', 14));
+        $trialDays = (int) config('subscription.trial_days', 14);
         $result = $this->companyProvisioningService->createTrialCompanyWithOwner($validated, $trialDays);
 
         /** @var User $user */
@@ -55,6 +62,7 @@ class AuthController extends Controller
             'user' => $user,
             'company' => $user->company,
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
+            'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Register berhasil', 201);
     }
 
@@ -103,6 +111,7 @@ class AuthController extends Controller
             'user' => $user,
             'company' => $user->company,
             'subscription' => $subscription,
+            'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Login berhasil');
     }
 
@@ -125,6 +134,7 @@ class AuthController extends Controller
             'user' => $user,
             'company' => $user->company,
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
+            'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Profile berhasil diambil');
     }
 
@@ -135,6 +145,7 @@ class AuthController extends Controller
         return $this->successResponse([
             'company' => $user->company,
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
+            'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Status langganan berhasil diambil');
     }
 }

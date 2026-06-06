@@ -75,4 +75,14 @@ class Company extends Model
     {
         return $this->hasMany(PaymentTransaction::class);
     }
+
+    public function kasirRequestLogs()
+    {
+        return $this->hasMany(KasirRequestLog::class);
+    }
+
+    public function clientRequestLogs()
+    {
+        return $this->hasMany(ClientRequestLog::class);
+    }
 }

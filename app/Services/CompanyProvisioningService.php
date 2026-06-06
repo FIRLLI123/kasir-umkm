@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AppSetting;
 use App\Models\Company;
 use App\Models\CustomerGroup;
+use App\Models\PaymentTransaction;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,34 @@ use Illuminate\Support\Str;
 
 class CompanyProvisioningService
 {
+    public function getAvailablePlans()
+    {
+        return collect(config('subscription.plans', []))
+            ->map(function ($plan) {
+                return [
+                    'code' => $plan['code'],
+                    'name' => $plan['name'],
+                    'price' => (int) $plan['price'],
+                    'duration_days' => $plan['duration_days'],
+                    'is_lifetime' => (bool) $plan['is_lifetime'],
+                    'description' => $plan['description'] ?? null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function findPlanByCode($planCode)
+    {
+        foreach ($this->getAvailablePlans() as $plan) {
+            if ($plan['code'] === $planCode) {
+                return $plan;
+            }
+        }
+
+        return null;
+    }
+
     public function createTrialCompanyWithOwner(array $attributes, $trialDays = 14)
     {
         return DB::transaction(function () use ($attributes, $trialDays) {
@@ -117,6 +146,7 @@ class CompanyProvisioningService
         return [
             'status' => $company->subscription_status,
             'is_active' => in_array($company->subscription_status, ['trial', 'active']),
+            'is_lifetime' => $company->subscription_status === 'active' && ! $company->subscription_ends_at,
             'trial_starts_at' => optional($company->trial_starts_at)->toDateTimeString(),
             'trial_ends_at' => optional($company->trial_ends_at)->toDateTimeString(),
             'subscription_starts_at' => optional($company->subscription_starts_at)->toDateTimeString(),
@@ -151,6 +181,45 @@ class CompanyProvisioningService
         return $company;
     }
 
+    public function activateCompanySubscriptionFromPayment(PaymentTransaction $paymentTransaction, array $plan)
+    {
+        $company = $paymentTransaction->company()->firstOrFail();
+        $now = now();
+        $subscriptionStartAt = $company->subscription_starts_at ?: $now;
+
+        if (! empty($plan['is_lifetime'])) {
+            $company->update([
+                'subscription_status' => 'active',
+                'subscription_starts_at' => $subscriptionStartAt,
+                'subscription_ends_at' => null,
+                'activated_at' => $company->activated_at ?: $now,
+                'expired_at' => null,
+            ]);
+
+            return $company->fresh();
+        }
+
+        $durationDays = max(1, (int) ($plan['duration_days'] ?? 0));
+        $trialEndAt = $company->trial_ends_at && $company->trial_ends_at->gt($now)
+            ? $company->trial_ends_at
+            : null;
+        $activeEndAt = $company->subscription_ends_at && $company->subscription_ends_at->gt($now)
+            ? $company->subscription_ends_at
+            : null;
+        $baseStartAt = $activeEndAt ?: $trialEndAt ?: $now;
+        $subscriptionEndAt = $baseStartAt->copy()->addDays($durationDays);
+
+        $company->update([
+            'subscription_status' => 'active',
+            'subscription_starts_at' => $subscriptionStartAt,
+            'subscription_ends_at' => $subscriptionEndAt,
+            'activated_at' => $company->activated_at ?: $now,
+            'expired_at' => null,
+        ]);
+
+        return $company->fresh();
+    }
+
     protected function resolveSubscriptionEndAt(Company $company)
     {
         if ($company->subscription_status === 'trial') {
@@ -166,6 +235,10 @@ class CompanyProvisioningService
 
     protected function buildSubscriptionMessage($status, $daysRemaining)
     {
+        if ($status === 'active' && $daysRemaining === null) {
+            return 'Langganan aktif seumur hidup.';
+        }
+
         if ($status === 'trial' && $daysRemaining !== null) {
             if ($daysRemaining < 0) {
                 return 'Masa trial sudah berakhir.';

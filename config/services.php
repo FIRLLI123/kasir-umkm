@@ -36,4 +36,12 @@ return [
         'model' => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
     ],
 
+    'klikqris' => [
+        'mode' => env('KLIKKQRIS_MODE', 'sandbox'),
+        'api_key' => env('KLIKKQRIS_API_KEY'),
+        'merchant_id' => env('KLIKKQRIS_MERCHANT_ID'),
+        'base_url' => env('KLIKKQRIS_BASE_URL', 'https://klikqris.com/api/sandbox'),
+        'validate_webhook_signature' => env('KLIKKQRIS_VALIDATE_WEBHOOK_SIGNATURE', false),
+    ],
+
 ];

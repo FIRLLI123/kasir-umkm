@@ -60,6 +60,11 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function paymentTransactions()
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
     public function isSuperAdmin()
     {
         return strtoupper((string) $this->role) === 'SUPER_ADMIN';
