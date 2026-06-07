@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductPrice;
+use App\Services\ProductBulkService;
+use App\Services\ProductImportService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,11 +17,21 @@ class ProductController extends Controller
 {
     use ApiResponse;
 
+    protected $productBulkService;
+
+    protected $productImportService;
+
     protected $stockService;
 
-    public function __construct(StockService $stockService)
+    public function __construct(
+        StockService $stockService,
+        ProductBulkService $productBulkService,
+        ProductImportService $productImportService
+    )
     {
         $this->stockService = $stockService;
+        $this->productBulkService = $productBulkService;
+        $this->productImportService = $productImportService;
     }
 
     public function index(Request $request)
@@ -88,6 +100,49 @@ class ProductController extends Controller
         });
 
         return $this->successResponse($product->load('prices.customerGroup'), 'Produk berhasil dibuat', 201);
+    }
+
+    public function bulkStore(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+        ]);
+
+        $result = $this->productBulkService->bulkCreate($request->user(), $validated['items']);
+
+        return $this->successResponse($result, 'Bulk create produk selesai diproses');
+    }
+
+    public function quickStore(Request $request)
+    {
+        $product = $this->productBulkService->quickCreate($request->user(), $request->only([
+            'product_name',
+            'product_code',
+            'unit',
+            'cost_price',
+            'selling_price',
+            'stock',
+            'status',
+            'prices',
+        ]));
+
+        return $this->successResponse($product->load('prices.customerGroup'), 'Produk berhasil dibuat', 201);
+    }
+
+    public function import(Request $request)
+    {
+        $validated = $request->validate([
+            'mode' => 'required|in:create_products,stock_in_existing',
+            'file' => 'required|file|mimes:xlsx,csv,txt',
+        ]);
+
+        $result = $this->productImportService->import(
+            $request->user(),
+            $validated['file'],
+            $validated['mode']
+        );
+
+        return $this->successResponse($result, 'Import produk selesai diproses');
     }
 
     public function update(Request $request, $id)

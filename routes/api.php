@@ -62,8 +62,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
 
     Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{id}', [ProductController::class, 'show']);
     Route::post('/products', [ProductController::class, 'store']);
+    Route::post('/products/bulk', [ProductController::class, 'bulkStore']);
+    Route::post('/products/quick-create', [ProductController::class, 'quickStore']);
+    Route::post('/products/import', [ProductController::class, 'import']);
+    Route::get('/products/{id}', [ProductController::class, 'show']);
     Route::put('/products/{id}', [ProductController::class, 'update']);
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
@@ -83,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/stocks', [StockController::class, 'index']);
     Route::post('/stocks/adjustments', [StockController::class, 'adjust']);
+    Route::post('/stocks/bulk-stock-in', [StockController::class, 'bulkStockIn']);
     Route::get('/stocks/{productId}/history', [StockController::class, 'history']);
 
     Route::get('/reports/daily', [ReportController::class, 'daily']);

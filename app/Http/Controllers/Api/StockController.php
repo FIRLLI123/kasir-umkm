@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Services\StockBulkService;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,11 +14,14 @@ class StockController extends Controller
 {
     use ApiResponse;
 
+    protected $stockBulkService;
+
     protected $stockService;
 
-    public function __construct(StockService $stockService)
+    public function __construct(StockService $stockService, StockBulkService $stockBulkService)
     {
         $this->stockService = $stockService;
+        $this->stockBulkService = $stockBulkService;
     }
 
     public function index(Request $request)
@@ -81,6 +85,22 @@ class StockController extends Controller
         );
 
         return $this->successResponse($product, 'Stok berhasil diubah');
+    }
+
+    public function bulkStockIn(Request $request)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'mutation_date' => 'nullable|date',
+        ]);
+
+        $result = $this->stockBulkService->bulkStockIn(
+            $request->user(),
+            $validated['items'],
+            $validated['mutation_date'] ?? null
+        );
+
+        return $this->successResponse($result, 'Bulk penambahan stok selesai diproses');
     }
 
     public function history(Request $request, $productId)
