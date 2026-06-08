@@ -34,6 +34,7 @@ Route::post('/payments/webhook/klikqris', [PaymentController::class, 'webhookKli
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
+    Route::post('/profile/change-password', [AuthController::class, 'changePassword']);
     Route::get('/subscription', [AuthController::class, 'subscription']);
     Route::get('/subscription/plans', [PaymentController::class, 'plans']);
     Route::post('/subscription/checkout', [PaymentController::class, 'checkout']);

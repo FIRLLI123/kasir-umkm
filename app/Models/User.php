@@ -69,4 +69,9 @@ class User extends Authenticatable
     {
         return strtoupper((string) $this->role) === 'SUPER_ADMIN';
     }
+
+    public function ownsCompany()
+    {
+        return $this->company && $this->company->isOwnedBy($this);
+    }
 }

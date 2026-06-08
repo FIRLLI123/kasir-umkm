@@ -61,6 +61,7 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $user,
             'company' => $user->company,
+            'is_owner' => $user->company ? $user->company->isOwnedBy($user) : false,
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
             'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Register berhasil', 201);
@@ -110,6 +111,7 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $user,
             'company' => $user->company,
+            'is_owner' => $user->company ? $user->company->isOwnedBy($user) : false,
             'subscription' => $subscription,
             'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Login berhasil');
@@ -133,6 +135,7 @@ class AuthController extends Controller
         return $this->successResponse([
             'user' => $user,
             'company' => $user->company,
+            'is_owner' => $user->company ? $user->company->isOwnedBy($user) : false,
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
             'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Profile berhasil diambil');
@@ -147,5 +150,25 @@ class AuthController extends Controller
             'subscription' => $this->companyProvisioningService->buildSubscriptionSnapshot($user->company),
             'ai_chat_limit' => $this->aiChatAccessService->getUsageSnapshot($user),
         ], 'Status langganan berhasil diambil');
+    }
+
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'old_password' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        if (!Hash::check($validated['old_password'], $user->password)) {
+            return $this->errorResponse('Password lama tidak sesuai', 400);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password'])
+        ]);
+
+        return $this->successResponse(null, 'Password berhasil diubah');
     }
 }

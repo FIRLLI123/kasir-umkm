@@ -46,6 +46,11 @@ class Company extends Model
         return $this->belongsTo(User::class, 'owner_user_id');
     }
 
+    public function isOwnedBy(User $user)
+    {
+        return (int) $this->owner_user_id === (int) $user->id;
+    }
+
     public function customerGroups()
     {
         return $this->hasMany(CustomerGroup::class);

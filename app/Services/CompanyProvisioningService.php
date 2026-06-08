@@ -70,7 +70,7 @@ class CompanyProvisioningService
                 'email' => $attributes['email'],
                 'password' => Hash::make($attributes['password']),
                 'company_id' => $company->id,
-                'role' => 'ADMIN',
+                'role' => 'OWNER',
                 'phone' => $attributes['phone'] ?? null,
                 'status' => '00',
             ]);
